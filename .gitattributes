@@ -1,0 +1,12 @@
+# Store text with LF line endings on every operating system, so Windows and
+# Linux (CI) see identical files and git stops warning about CRLF.
+* text=auto eol=lf
+
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.ico binary
+*.woff2 binary
+*.pdf binary

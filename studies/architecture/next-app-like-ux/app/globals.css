@@ -1,0 +1,342 @@
+@import "tailwindcss";
+
+/* ---------------------------------------------------------------------------
+   Design tokens. One warm paper-and-ink palette with a single loud accent.
+   Declared with @theme so Tailwind generates utilities (bg-paper, text-ink…).
+   --------------------------------------------------------------------------- */
+@theme inline {
+  --color-paper: #f2eadb;
+  --color-paper-deep: #e7dbc5;
+  --color-card: #f8f3e8;
+  --color-ink: #1a1612;
+  --color-ink-soft: #5d5346;
+  --color-ink-faint: #8a7f6f;
+  --color-rule: rgb(26 22 18 / 0.14);
+  --color-signal: #e0421c;
+  --color-signal-deep: #b9300f;
+  --color-pine: #1e4640;
+  --color-butter: #f0c24b;
+
+  --font-display: var(--font-instrument), "Times New Roman", serif;
+  --font-sans: var(--font-hanken), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains), ui-monospace, monospace;
+
+  --animate-rise: rise 520ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  --animate-shimmer: shimmer 1.6s linear infinite;
+  --animate-eq: eq 900ms ease-in-out infinite;
+}
+
+:root {
+  --player-height: 5.25rem;
+  --sidebar-width: 17rem;
+}
+
+html {
+  background: var(--color-paper);
+  color: var(--color-ink);
+  /* Room for the fixed player so the last row is never hidden behind it. */
+  scroll-padding-bottom: var(--player-height);
+}
+
+body {
+  font-family: var(--font-sans);
+  font-feature-settings: "ss01", "cv11";
+}
+
+/* Paper grain. A fixed, non-interactive layer above the page background. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.07;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+::selection {
+  background: var(--color-signal);
+  color: var(--color-paper);
+}
+
+/* One visible focus style everywhere. Never remove outlines without a
+   replacement. It lives in the base layer so a utility class can still
+   override it where a component draws its own focus state. */
+@layer base {
+  :focus-visible {
+    outline: 2px solid var(--color-signal);
+    outline-offset: 2px;
+  }
+}
+
+@layer components {
+  .eyebrow {
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--color-ink-faint);
+  }
+
+  /* Skeletons reserve the exact space the real content will take, which is
+     what keeps Cumulative Layout Shift at zero while data streams in. */
+  .skeleton {
+    border-radius: 3px;
+    background: linear-gradient(
+      100deg,
+      var(--color-paper-deep) 40%,
+      rgb(255 255 255 / 0.45) 50%,
+      var(--color-paper-deep) 60%
+    );
+    background-size: 220% 100%;
+    animation: var(--animate-shimmer);
+  }
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    translate: 0 14px;
+  }
+}
+
+@keyframes shimmer {
+  from {
+    background-position: 120% 0;
+  }
+  to {
+    background-position: -100% 0;
+  }
+}
+
+@keyframes eq {
+  0%,
+  100% {
+    scale: 1 0.3;
+  }
+  50% {
+    scale: 1 1;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   View Transitions (lesson 11)
+   --------------------------------------------------------------------------- */
+
+/* Let clicks reach the page while a transition is running. */
+::view-transition {
+  pointer-events: none;
+}
+
+/* Suspense reveals: <Crossfade> in components/ui/crossfade.tsx */
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    filter: blur(3px);
+  }
+}
+
+::view-transition-new(.reveal) {
+  animation: 260ms ease-out both fade-in;
+}
+
+/* Directional slides: <DirectionalSlide> + <Link transitionTypes> */
+@keyframes slide {
+  from {
+    translate: var(--slide-offset);
+    opacity: 0;
+  }
+}
+
+::view-transition-old(.nav-forward) {
+  --slide-offset: -60px;
+  animation: 200ms ease-in-out both slide reverse;
+}
+
+::view-transition-new(.nav-forward) {
+  --slide-offset: 60px;
+  animation: 200ms ease-in-out both slide;
+}
+
+::view-transition-old(.nav-back) {
+  --slide-offset: 60px;
+  animation: 200ms ease-in-out both slide reverse;
+}
+
+::view-transition-new(.nav-back) {
+  --slide-offset: -60px;
+  animation: 200ms ease-in-out both slide;
+}
+
+/* The player is a fixed anchor: it must not slide or fade with the page. */
+::view-transition-group(player-bar) {
+  animation: none;
+  z-index: 100;
+}
+
+::view-transition-old(player-bar) {
+  display: none;
+}
+
+::view-transition-new(player-bar) {
+  animation: none;
+}
+
+/* Movement can cause motion sickness. Honour the OS setting everywhere. */
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(*),
+  ::view-transition-new(*),
+  ::view-transition-group(*) {
+    animation-duration: 0s !important;
+    animation-delay: 0s !important;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Lesson pages: styles for Markdown rendered from /docs
+   --------------------------------------------------------------------------- */
+.prose-lesson {
+  max-width: 44rem;
+  font-size: 1.0625rem;
+  line-height: 1.7;
+  color: var(--color-ink);
+}
+
+.prose-lesson > * + * {
+  margin-top: 1.15em;
+}
+
+.prose-lesson h1 {
+  font-family: var(--font-display);
+  font-size: clamp(2.5rem, 6vw, 3.75rem);
+  line-height: 1.02;
+  letter-spacing: -0.01em;
+}
+
+.prose-lesson h2 {
+  margin-top: 2.4em;
+  padding-top: 1.1em;
+  border-top: 1px solid var(--color-rule);
+  font-family: var(--font-display);
+  font-size: 2rem;
+  line-height: 1.15;
+}
+
+.prose-lesson h1 + h2 {
+  margin-top: 1.1em;
+}
+
+.prose-lesson h3 {
+  margin-top: 1.8em;
+  font-size: 1.0625rem;
+  font-weight: 700;
+}
+
+.prose-lesson a {
+  color: var(--color-signal-deep);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+
+.prose-lesson a:hover {
+  color: var(--color-ink);
+}
+
+.prose-lesson strong {
+  font-weight: 700;
+}
+
+.prose-lesson ul,
+.prose-lesson ol {
+  padding-left: 1.3em;
+}
+
+.prose-lesson ul {
+  list-style: disc;
+}
+
+.prose-lesson ol {
+  list-style: decimal;
+}
+
+.prose-lesson li + li {
+  margin-top: 0.4em;
+}
+
+.prose-lesson li::marker {
+  color: var(--color-signal);
+}
+
+.prose-lesson :not(pre) > code {
+  padding: 0.12em 0.36em;
+  border-radius: 3px;
+  background: var(--color-paper-deep);
+  font-family: var(--font-mono);
+  font-size: 0.86em;
+}
+
+.prose-lesson pre {
+  overflow-x: auto;
+  padding: 1.1rem 1.25rem;
+  border-radius: 4px;
+  background: var(--color-ink) !important;
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  line-height: 1.65;
+  tab-size: 2;
+}
+
+.prose-lesson blockquote {
+  padding: 0.9rem 1.1rem;
+  border-left: 3px solid var(--color-signal);
+  background: var(--color-card);
+}
+
+.prose-lesson table {
+  display: block;
+  overflow-x: auto;
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9375rem;
+}
+
+.prose-lesson th,
+.prose-lesson td {
+  padding: 0.55rem 0.9rem 0.55rem 0;
+  border-bottom: 1px solid var(--color-rule);
+  text-align: left;
+  vertical-align: top;
+}
+
+.prose-lesson th {
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--color-ink-faint);
+}
+
+.prose-lesson hr {
+  border: 0;
+  border-top: 1px solid var(--color-rule);
+}
+
+.prose-lesson input[type="checkbox"] {
+  margin-right: 0.5em;
+  accent-color: var(--color-signal);
+}
+
+.prose-lesson .contains-task-list {
+  padding-left: 0;
+  list-style: none;
+}

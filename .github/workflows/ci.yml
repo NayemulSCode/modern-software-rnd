@@ -1,0 +1,74 @@
+name: CI
+
+# Checks only the studies and templates a change touched. Each of them exposes
+# `npm run ci`, so this file never needs to know what a study contains.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  changed:
+    name: Find changed projects
+    runs-on: ubuntu-latest
+    outputs:
+      folders: ${{ steps.list.outputs.folders }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - id: list
+        env:
+          BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          # No usable base commit (first push, force push): check everything.
+          if [ -z "$BASE" ] || ! git cat-file -e "$BASE^{commit}" 2>/dev/null; then
+            files=$(git ls-files)
+          else
+            files=$(git diff --name-only "$BASE" "$GITHUB_SHA")
+          fi
+
+          # A project is studies/<category>/<name> or templates/<name>, and
+          # only counts if it still has a package.json (it was not deleted).
+          folders=$(printf '%s\n' "$files" \
+            | grep -oE '^(studies/[^/]+/[^/]+|templates/[^/]+)' \
+            | sort -u \
+            | while read -r dir; do [ -f "$dir/package.json" ] && echo "$dir"; done \
+            | jq -R . | jq -sc .)
+
+          echo "Projects to check: $folders"
+          echo "folders=$folders" >> "$GITHUB_OUTPUT"
+
+  check:
+    name: ${{ matrix.folder }}
+    needs: changed
+    if: needs.changed.outputs.folders != '[]'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        folder: ${{ fromJson(needs.changed.outputs.folders) }}
+    defaults:
+      run:
+        working-directory: ${{ matrix.folder }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: ${{ matrix.folder }}/package-lock.json
+
+      - run: npm ci
+
+      - run: npm run ci

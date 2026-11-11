@@ -1,0 +1,35 @@
+# Safety net for the whole repository. Each study also has its own .gitignore
+# for framework-specific output.
+
+# dependencies and build output
+node_modules/
+.next/
+dist/
+build/
+out/
+coverage/
+.turbo/
+*.tsbuildinfo
+
+# environment files: only the example is committed
+.env
+.env.*
+!.env.example
+
+# local databases
+*.db
+*.db-journal
+*.sqlite
+
+# logs
+*.log
+
+# operating system and editors
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# local tool settings
+.claude/settings.local.json

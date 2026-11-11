@@ -1,0 +1,65 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model User {
+  id        String     @id
+  name      String
+  playlists Playlist[]
+  favorites Favorite[]
+}
+
+model Track {
+  id          String          @id // URL slug, e.g. "glass-harbor"
+  title       String
+  artist      String
+  genre       String
+  bpm         Int
+  durationSec Int
+  // `seed` drives both the generated cover art and the synthesized melody,
+  // so the app needs no image or audio files.
+  seed        Int
+  position    Int             @unique // library order, used for previous/next
+  createdAt   DateTime        @default(now())
+  playlists   PlaylistTrack[]
+  favorites   Favorite[]
+}
+
+model Playlist {
+  id          String          @id
+  name        String
+  description String
+  // A locked playlist rejects every change. It exists so you can watch an
+  // optimistic update roll back (lesson 08).
+  locked      Boolean         @default(false)
+  seed        Int
+  ownerId     String
+  owner       User            @relation(fields: [ownerId], references: [id])
+  tracks      PlaylistTrack[]
+}
+
+model PlaylistTrack {
+  playlistId String
+  trackId    String
+  position   Int
+  playlist   Playlist @relation(fields: [playlistId], references: [id], onDelete: Cascade)
+  track      Track    @relation(fields: [trackId], references: [id], onDelete: Cascade)
+
+  @@id([playlistId, trackId])
+  @@index([playlistId, position])
+}
+
+model Favorite {
+  userId    String
+  trackId   String
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  track     Track    @relation(fields: [trackId], references: [id], onDelete: Cascade)
+
+  @@id([userId, trackId])
+}
