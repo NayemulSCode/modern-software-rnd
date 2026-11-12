@@ -9,6 +9,7 @@ Each study answers **one written question**, runs on its own, and ends with a **
 | Study | Category | Question | Status | Last verified |
 |---|---|---|---|---|
 | [next-app-like-ux](./studies/architecture/next-app-like-ux) | Architecture | How do you make a Next.js app feel as fast as a native app while still rendering on the server? | concluded | 2026-11-11 |
+| [astryx-admin-screen](./studies/ui-libraries/astryx-admin-screen) | UI libraries | Can Astryx, Meta’s open-source design system, build the shared inventory admin screen without custom components, and what does adopting it cost? | concluded | 2026-11-12 |
 
 Status is one of `exploring`, `working`, `concluded` or `archived`. What is planned next is in the [roadmap](./docs/roadmap.md).
 

@@ -1,0 +1,10 @@
+/* The "plain CSS" setup path from `npx astryx docs styling-overview`: two
+   prebuilt stylesheets and no build plugin. The theme's own CSS is imported by
+   the generated astryx-themes.ts module. */
+@import "@astryxdesign/core/reset.css";
+@import "@astryxdesign/core/astryx.css";
+
+html,
+body {
+  height: 100%;
+}
