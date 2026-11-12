@@ -15,13 +15,13 @@ This list is a backlog, not a promise. Reorder it freely, and delete ideas that 
 
 ## UI libraries
 
-- [ ] Can shadcn/ui cover a data-heavy admin screen (table, filters, forms, dialogs) without custom components?
-- [ ] **astryx.atmeta** — *confirm the exact name and link before starting.* What does it offer that shadcn/ui does not?
+- [ ] Can shadcn/ui build the same [test screen](./comparisons/ui-library-task.md) without custom components, and how does it compare with Astryx on size, accessibility and effort?
+- [x] Can [Astryx](https://astryx.atmeta.com), Meta’s open-source design system, build the shared inventory admin screen without custom components, and what does adopting it cost? → [astryx-admin-screen](../studies/ui-libraries/astryx-admin-screen)
 - [ ] Radix Primitives vs Base UI vs React Aria: which headless layer gives the best accessibility for the least code?
 - [ ] How do you build and document your own small design system on top of Tailwind tokens?
 - [ ] Copy-in components (shadcn) vs installed packages (MUI, Mantine): what is the real maintenance difference after six months?
 
-Results from these belong side by side in [`comparisons/component-libraries.md`](./comparisons), using the same test screen for every library.
+Results from these go side by side in [`comparisons/component-libraries.md`](./comparisons/component-libraries.md). Every library builds the same screen, specified in [`comparisons/ui-library-task.md`](./comparisons/ui-library-task.md).
 
 ## Features
 

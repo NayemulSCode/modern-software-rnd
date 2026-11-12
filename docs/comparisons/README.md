@@ -20,4 +20,6 @@ A starting set of criteria for UI libraries:
 | Upgrade path | What an update requires: a version bump, or re-copying files |
 | Documentation | Could you finish the task from the docs alone? |
 
+For UI libraries the task and criteria are fixed in [`ui-library-task.md`](./ui-library-task.md), and the results are in [`component-libraries.md`](./component-libraries.md).
+
 Each comparison file links to the studies it is based on and ends with a recommendation and when it does not apply.
