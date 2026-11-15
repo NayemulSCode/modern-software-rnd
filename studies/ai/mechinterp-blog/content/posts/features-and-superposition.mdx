@@ -1,0 +1,101 @@
+import { SuperpositionDemo } from "@/components/interactive"
+
+export const metadata = {
+  title: "Features and superposition: five things in two numbers",
+  shortTitle: "Features and superposition",
+  description:
+    "Why single neurons are so often confusing: a model that stores more features than it has room for, trained live in your browser.",
+  published: "2026-11-12",
+}
+
+If a model had one neuron per concept, interpretability would be easy: find the "French" neuron, the "inside a string literal" neuron, and read them off. Researchers who look at real models mostly find something messier. Many neurons respond to several unrelated things at once. They are **polysemantic**.
+
+One explanation is that models *want to represent more features than they have neurons*. The paper that studied this most carefully calls it the superposition hypothesis ([Elhage et al., 2022](https://transformer-circuits.pub/2022/toy_model/index.html)). This post rebuilds the paper's smallest experiment so you can watch superposition happen.
+
+## A feature is a direction
+
+Start with what we mean by a feature. Inside a model, the state at one point is a vector of numbers. A feature, such as "this token is a number", is stored as a **direction** in that vector space. How strongly the feature is present is how far the vector points in that direction.
+
+With two dimensions you can store two features at right angles and read either one without the other getting in the way. That is like two variables in two separate registers. The question is what a model does when it needs more features than that.
+
+## The smallest model that shows it
+
+The setup comes straight from the paper. There are 5 input features $x_1, \dots, x_5$ and only 2 hidden dimensions. The model compresses with a matrix $W$ and decompresses with the same matrix, transposed:
+
+$$
+h = W x
+$$
+
+$$
+x' = \mathrm{ReLU}(W^\top h + b)
+$$
+
+Column $i$ of $W$ is the 2D direction where feature $i$ is stored. Training minimises the reconstruction error, weighted by how much each feature matters:
+
+$$
+L = \sum_i I_i \,(x_i - x'_i)^2
+$$
+
+The importance of feature $i$ is $I_i = 0.7^{\,i}$. So feature 1 matters most, and each feature after it matters 0.7 times as much as the one before.
+
+The data has one knob, **sparsity** $S$: each feature is zero with probability $S$, and otherwise a random number between 0 and 1. At $S = 0$ every feature is active all the time. At $S = 0.97$ each feature is active only 3% of the time, which is closer to how real features behave: most tokens are not about DNA, not in Hebrew, not inside a string literal.
+
+In code, the whole model is a few lines. This is the forward pass the demo below runs:
+
+```ts
+// h = W x, then x' = ReLU(Wᵀ h + b). W is 2 × 5, stored row-major.
+function forward(W: number[][], b: number[], x: number[]): number[] {
+  const h = W.map((row) => row.reduce((sum, w, j) => sum + w * x[j], 0))
+  return b.map((bias, i) => Math.max(0, bias + W[0][i] * h[0] + W[1][i] * h[1]))
+}
+```
+
+The gradients are derived by hand, and a test checks them against finite differences. There is no machine-learning library: the model has 15 parameters.
+
+<SuperpositionDemo />
+
+## What you should see
+
+The demo trains from the same random start every time, so these numbers should match what you get.
+
+| Sparsity | Features stored | How they are arranged |
+| --- | --- | --- |
+| 0% (dense) | 2 of 5 | Features 1 and 2 at right angles; 3, 4 and 5 dropped |
+| 50% | 3 of 5 | Two features share one line, pointing in opposite directions |
+| 80–90% | 4 of 5 | Two such opposite pairs, at right angles to each other |
+| 97% | 5 of 5 | Evenly spaced around the circle: a pentagon |
+
+**Dense features: the model behaves like PCA.** With every feature always active, any overlap would cost on every example, so the model keeps the two most important features at right angles and gives up on the rest. The paper describes this as learning an orthogonal basis of the most important features, similar to principal component analysis. The dropped features are not ignored entirely: their bias settles near 0.5, which is the average value of a feature. When you cannot store something, guessing its average is the best you can do.
+
+**Sparse features: the model overlaps them.** Once features are rarely active at the same time, two features can share a direction and usually not collide. The model first places features in *antipodal pairs*: two features on the same line, pointing in opposite directions. The ReLU keeps them apart, because a negative value is cut to zero. The paper reports the same progression: antipodal pairs first, then other geometric shapes as more features are packed in.
+
+**Very sparse features: the pentagon.** At 97% sparsity all five features fit, about 72° apart. Open "Show the numbers" in the demo. Each feature's *overlap with others* is now well above zero: feature 2 leaks into the reading of feature 1, and so on. The model accepts that interference because two features are rarely active together. It also learns a **negative bias**, around −0.2, which cuts off the small leaked values before they reach the output. The paper points out that this ability to filter noise with a negative bias is part of what makes superposition work.
+
+<Callout tone="developer">
+  This is a hash table with collisions. Five keys, two buckets: if lookups are rare enough, you
+  accept occasional collisions in exchange for storing everything. The ReLU and the negative bias
+  are the collision handling.
+</Callout>
+
+## Why this makes neurons hard to read
+
+In this model the hidden dimensions are not "feature 1" and "feature 2". At 97% sparsity, each of the two hidden numbers carries a mixture of all five features. If you inspected hidden dimension 1 alone, you would see it respond to several unrelated inputs. That is a polysemantic neuron, produced by a model doing exactly what it was trained to do.
+
+This is the central difficulty of the field in miniature: **the units you can see are not the units the model thinks in.** The features are directions that cut across neurons. To read them, you have to find those directions first. That is the job of the sparse autoencoder in the next part.
+
+## What changes in real models
+
+The toy model is deliberately tiny. The paper repeats the experiment with 80 features in 20 dimensions and reports essentially a scaled-up version of the same picture. It also describes the switch between "store this feature" and "drop it" as a *phase change*: a sharp transition, not a gradual one.
+
+A real language model has thousands of dimensions and, plausibly, far more features than that. Nothing in this demo proves that large models use superposition the same way. What it shows is that superposition is not exotic. A model with a nonlinearity and sparse inputs falls into it on its own, in a few seconds of training.
+
+## Try this
+
+- Set sparsity to 50% and open "Show the numbers". Which two features share a line, and which one is left at right angles to them?
+- Press "Train again" at 97% a few times. The training is seeded, so it gives the same pentagon. Rotations and reflections of a solution are equally good, and different seeds produce different ones.
+- At 0%, open "Show the numbers" and read the bias column. Features 3–5 have no arrow, so their bias is the only thing the model can output for them: about 0.5, their average.
+
+## Sources
+
+- Elhage et al. (2022), [Toy Models of Superposition](https://transformer-circuits.pub/2022/toy_model/index.html). The model, the loss, the importance weighting $I_i = 0.7^i$, the sparsity definition, and the observations about antipodal pairs, negative bias and phase changes are all from this paper. Also on [arXiv](https://arxiv.org/abs/2209.10652).
+- The demo's code: `lib/toy/superposition.ts` in this study, with its tests in `tests/toy.test.ts`.

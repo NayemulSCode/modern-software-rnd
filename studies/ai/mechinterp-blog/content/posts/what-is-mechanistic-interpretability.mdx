@@ -1,0 +1,92 @@
+export const metadata = {
+  title: "What mechanistic interpretability is, for developers",
+  shortTitle: "What mechanistic interpretability is",
+  description:
+    "A neural network is a program nobody wrote. Mechanistic interpretability tries to read it anyway: which parts compute what, and how we can prove it.",
+  published: "2026-11-12",
+}
+
+Every program you have shipped, someone wrote. When it misbehaves you read the source, set a breakpoint, and find the line. A large language model is also a program, a few billion multiplications arranged in layers, but nobody wrote its logic. Training found it. There is no source to read, only weights: long lists of numbers.
+
+**Mechanistic interpretability** ("mechinterp") is the attempt to read those numbers anyway. The goal is to describe, in terms a person can check, *which internal parts of a model compute what*, and *how they combine to produce a behaviour*.
+
+<Callout tone="developer" title="The closest analogy you already know">
+  Reverse engineering a compiled binary. You have the machine code, not the source. You
+  disassemble it, give names to the pieces, guess what each function does, and then test your
+  guess by patching the binary and watching what changes. Mechanistic interpretability does the
+  same thing to a neural network.
+</Callout>
+
+## Why testing the outputs is not enough
+
+The usual way to check a model is behavioural: give it inputs, grade the outputs. That is the black-box testing of machine learning, and it is necessary. It cannot tell you *why* the model answered as it did, so it cannot tell you whether the reason will hold on the inputs you did not test.
+
+Two models can give the same answers on a test set for different reasons. One has learned the rule; the other has learned a shortcut that happens to agree with the rule on that data. From outside they look identical. Mechanistic interpretability looks inside to tell them apart.
+
+## A transformer as a shared bus
+
+The models this series is about are transformers. For our purposes, one picture is enough:
+
+<ResidualStreamDiagram />
+
+Each token is turned into a vector of numbers. That vector, called the **residual stream**, flows through the model. Every layer *reads* from it, computes something, and *adds* its result back. At the end, the stream is turned into a prediction for the next token.
+
+The framework paper that made this picture popular describes the stream as a communication channel: layers talk to each other only by writing into it and reading from it ([Elhage et al., 2021](https://transformer-circuits.pub/2021/framework/index.html)). For a developer, it is a shared bus, or a blackboard every function can read and append to. Interpretability asks: what is written on the blackboard, and by whom?
+
+## The vocabulary
+
+Five words carry most of the field. The rest of the series builds each one with a model you can run.
+
+| Term | What it means | Software analogy |
+| --- | --- | --- |
+| **Feature** | A property of the input the model represents, such as "this text is in French", stored as a *direction* in the residual stream | A variable, but encoded as a direction in a vector rather than a named slot |
+| **Superposition** | Storing more features than there are dimensions, by letting them overlap | Bit-packing many flags into a few bytes, accepting some collisions |
+| **Polysemantic neuron** | A single neuron that responds to several unrelated things, often because of superposition | A memory address reused by several variables at different times |
+| **Circuit** | A set of components and connections that together carry out one behaviour | A call graph for one feature of the program |
+| **Causal intervention** | Changing an internal value (setting it to zero, or swapping in a value from another input) and watching the output | Patching a running binary, or mocking one function in a test |
+
+The last row is what makes this "mechanistic". A story about what a component does is only a hypothesis until you change that component and the behaviour changes the way the story predicts.
+
+## What the field has found
+
+Some results that this series will come back to:
+
+- **Features and circuits in vision models.** The Circuits thread argued, as three explicitly speculative claims, that networks contain meaningful features, that these connect into circuits, and that similar features and circuits recur across models. It studied a vision network by "zooming in" on individual connections, an approach it compares to neuroscience and cell biology ([Olah et al., 2020](https://distill.pub/2020/circuits/zoom-in/)).
+- **Superposition.** Small models trained on sparse data store more features than they have dimensions, and the way they pack them has a precise geometry ([Elhage et al., 2022](https://transformer-circuits.pub/2022/toy_model/index.html)). That is [part 2](/posts/features-and-superposition).
+- **Pulling features out.** A sparse autoencoder decomposed one 512-neuron layer of a small language model into more than 4,000 features, such as DNA sequences, legal language and Hebrew text ([Bricken et al., 2023](https://transformer-circuits.pub/2023/monosemantic-features/index.html)). The same method later reached up to 34 million features in a production model, Claude 3 Sonnet ([Templeton et al., 2024](https://transformer-circuits.pub/2024/scaling-monosemanticity/index.html)). That is [part 3](/posts/sparse-autoencoders).
+- **Circuits in language models.** *Induction heads*, a two-head circuit that copies patterns seen earlier in the text, appear in small transformers and may explain much of in-context learning ([Olsson et al., 2022](https://transformer-circuits.pub/2022/in-context-learning-and-induction-heads/index.html)). A circuit of 26 attention heads in GPT-2 small was mapped for one specific grammatical task ([Wang et al., 2022](https://arxiv.org/abs/2211.00593)). That is [part 4](/posts/induction-heads).
+- **Steering.** Amplifying a single "Golden Gate Bridge" feature inside Claude 3 Sonnet made the model bring the bridge into almost every answer ([Anthropic, 2024](https://www.anthropic.com/news/golden-gate-claude)). Finding a feature, then changing it on purpose, is the strongest form of evidence the field has.
+
+## Why a developer should care
+
+- **It is debugging, at a new scale.** The instincts are the ones you use every day: form a hypothesis, isolate a component, change one thing, observe. The tools are new; the method is not.
+- **It is how you would trust a component you did not write.** As models move into products, "it passed the evals" is the equivalent of "it passed the tests". Interpretability aims for the equivalent of code review.
+- **It is young and open.** Many results come from small models and simple experiments. Much of the tooling, from visualisations to experiment runners, is ordinary frontend and backend engineering.
+
+<Callout tone="caution" title="What it cannot do yet">
+  Today's methods explain parts of models, not whole models. The researchers behind the results
+  above are careful to describe their evidence as partial, and many of the clearest results come
+  from small or toy models. Read claims about "understanding" a large model as "understanding one
+  mechanism inside it".
+</Callout>
+
+## How this series works
+
+Each of the next three posts takes one idea and gives you a model small enough to run in your browser:
+
+1. **[Features and superposition](/posts/features-and-superposition):** train a model that squeezes 5 features into 2 numbers, and watch how it does it.
+2. **[Sparse autoencoders](/posts/sparse-autoencoders):** recover those 5 features from the 2 numbers alone.
+3. **[Induction heads](/posts/induction-heads):** break a working circuit, then repair it with a patch.
+
+The models are toys: a few dozen parameters, trained or hand-written in plain TypeScript. They are small enough that you can check every number, which is exactly why researchers use toy models too.
+
+## Sources
+
+- Elhage et al. (2021), [A Mathematical Framework for Transformer Circuits](https://transformer-circuits.pub/2021/framework/index.html).
+- Olah et al. (2020), [Zoom In: An Introduction to Circuits](https://distill.pub/2020/circuits/zoom-in/). Distill.
+- Elhage et al. (2022), [Toy Models of Superposition](https://transformer-circuits.pub/2022/toy_model/index.html).
+- Bricken et al. (2023), [Towards Monosemanticity: Decomposing Language Models With Dictionary Learning](https://transformer-circuits.pub/2023/monosemantic-features/index.html).
+- Templeton et al. (2024), [Scaling Monosemanticity: Extracting Interpretable Features from Claude 3 Sonnet](https://transformer-circuits.pub/2024/scaling-monosemanticity/index.html).
+- Olsson et al. (2022), [In-context Learning and Induction Heads](https://transformer-circuits.pub/2022/in-context-learning-and-induction-heads/index.html).
+- Wang et al. (2022), [Interpretability in the Wild: a Circuit for Indirect Object Identification in GPT-2 small](https://arxiv.org/abs/2211.00593).
+- Anthropic (2024), [Golden Gate Claude](https://www.anthropic.com/news/golden-gate-claude).

@@ -1,6 +1,6 @@
 # Modern Software R&D
 
-A working notebook of small, runnable studies in modern software development: architecture, UI libraries, common features, SEO and documentation.
+A working notebook of small, runnable studies in modern software development: architecture, UI libraries, common features, SEO, documentation and AI.
 
 Each study answers **one written question**, runs on its own, and ends with a **verdict**. The goal is not a collection of demos. It is a record of what was tried, what was learned, and what is worth using in a real project.
 
@@ -11,6 +11,7 @@ Each study answers **one written question**, runs on its own, and ends with a **
 | [next-app-like-ux](./studies/architecture/next-app-like-ux) | Architecture | How do you make a Next.js app feel as fast as a native app while still rendering on the server? | concluded | 2026-11-11 |
 | [astryx-admin-screen](./studies/ui-libraries/astryx-admin-screen) | UI libraries | Can Astryx, Meta’s open-source design system, build the shared inventory admin screen without custom components, and what does adopting it cost? | concluded | 2026-11-12 |
 | [shadcn-admin-screen](./studies/ui-libraries/shadcn-admin-screen) | UI libraries | Can shadcn/ui build the shared inventory admin screen without custom components, and how does it compare with Astryx on size, accessibility and effort? | concluded | 2026-11-12 |
+| [mechinterp-blog](./studies/ai/mechinterp-blog) | AI | Can small in-browser models make mechanistic interpretability understandable to developers, and what does an interactive MDX blog that stays fast and accessible take in Next.js 16? | concluded | 2026-11-12 |
 
 Status is one of `exploring`, `working`, `concluded` or `archived`. What is planned next is in the [roadmap](./docs/roadmap.md).
 
@@ -28,7 +29,7 @@ docs/                         knowledge that spans more than one study
   checklists/                 reusable checklists
 ```
 
-Categories so far: `architecture`, `ui-libraries`, `features`, `seo`, `documentation`. A category folder appears when its first study does.
+Categories so far: `architecture`, `ui-libraries`, `features`, `seo`, `documentation`, `ai`. A category folder appears when its first study does.
 
 ## Run a study
 

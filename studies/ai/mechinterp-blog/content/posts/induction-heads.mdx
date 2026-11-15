@@ -1,0 +1,123 @@
+import { InductionDemo } from "@/components/interactive"
+
+export const metadata = {
+  title: "Circuits and causal tests: break an induction head",
+  shortTitle: "Induction heads",
+  description:
+    "A two-head circuit lets transformers copy patterns from earlier in the text. Build intuition for it, then prove it works by breaking it and patching it back.",
+  published: "2026-11-12",
+}
+
+The first three parts were about *representation*: what a model stores, and how to find it. This part is about *computation*. How do stored features combine into a behaviour, and how do you prove that a given set of components is responsible for it?
+
+The example is the best-studied circuit in language models, the **induction head**.
+
+## The behaviour: continue a pattern you have seen
+
+Give a language model text where a sequence repeats, such as a name, a variable or an identifier, and it gets much better at predicting the second occurrence. After seeing `user_id = 42` once, it expects `id` after the next `user_`.
+
+The simplest form of this rule, as written in the paper that studied it in depth:
+
+> [A] [B] … [A] → [B]
+
+If token A was followed by token B earlier, then when A shows up again, predict B ([Olsson et al., 2022](https://transformer-circuits.pub/2022/in-context-learning-and-induction-heads/index.html)).
+
+## The circuit: two heads in two layers
+
+An earlier paper found that this behaviour is carried out by two attention heads working together. It appears only in models with at least two attention layers ([Elhage et al., 2021](https://transformer-circuits.pub/2021/framework/index.html)):
+
+1. **A previous-token head** (layer 1). At every position it looks one step back and writes "the token before me was X" into the residual stream.
+2. **An induction head** (layer 2). At the current position, holding token A, it searches earlier positions for one whose *previous token* was A. It finds the position right after the earlier A, which holds B, and copies B into the prediction.
+
+Neither head can do this alone. The induction head's search relies on information the previous-token head wrote. This is **composition**: a later component reads what an earlier one wrote into the shared stream.
+
+<Callout tone="developer">
+  It is a two-pass algorithm. Pass one builds an index: for each position, the key is the token
+  before it. Pass two looks up the current token in that index and returns the value stored there.
+  Head 1.0 builds the index; head 2.0 does the lookup.
+</Callout>
+
+## A model you can read completely
+
+Real induction heads are learned during training. The demo's model has **hand-written weights** instead, so every number has a known meaning. It is a real two-layer, attention-only transformer: queries, keys, softmax attention, residual connections. Its residual stream is split into four named slots:
+
+| Slot | Contains | Written by |
+| --- | --- | --- |
+| token | which token is here | the embedding |
+| position | which position this is | the embedding |
+| previous | which token was one position earlier | head 1.0 |
+| output | which token this position predicts next | head 2.0 |
+
+Head 1.0's query reads "my position" and its key reads "your position". The weights are set so that the score is high only when your position is my position minus one. Head 2.0's query reads "my token" and its key reads "your previous token", so the score is high only when they match. If nothing matches, head 2.0 falls back to the start token, which means "no prediction".
+
+<InductionDemo />
+
+## Experiment 1: look at the attention
+
+With the input `A B C D A`, the model predicts **B** with probability close to 100%.
+
+The two grids show why. In head 1.0, every row has its one dark square just left of the diagonal: each position attends to the one before it. In head 2.0, the last row (the second A) puts almost all its attention on the column for **B**. That is the position whose previous token was A.
+
+Attention patterns are suggestive, but they are *correlation*. A head can attend somewhere and then contribute nothing to the output. To show that these heads cause the prediction, we have to intervene.
+
+## Experiment 2: ablation
+
+**Ablating** a head means setting its output to zero, so nothing it computed reaches the rest of the model.
+
+- **Ablate head 2.0.** The prediction collapses to an even spread across all 9 tokens, about 11% each. Head 2.0 was the only component writing to the output slot, so without it the model has no opinion.
+- **Ablate head 1.0.** Head 2.0 still runs, but the "previous token" slot is now empty. Its search finds no match, so it falls back to the start token and the model makes no confident guess.
+
+Both heads are **necessary**. Ablation shows that, but it is a blunt tool. It does not say *what information* a component contributes, only that something breaks without it.
+
+## Experiment 3: activation patching
+
+Patching is the more precise test. Run the model on two inputs that differ in one place:
+
+- **clean:** `A B C D A`, which predicts B;
+- **corrupted:** `A E C D A`, which predicts E.
+
+Then run the corrupted input again, but take one head's output from the clean run instead. If the prediction flips back to B, that head carries the information that makes the difference.
+
+In the demo, pick the example `A E C D A`, then choose a patch option. The second input is already `A B C D A`.
+
+- **Patch head 2.0 from the clean run:** the prediction goes back to **B**. The difference between the two inputs reaches the output entirely through this head.
+- **Patch head 1.0 from the clean run:** the prediction stays **E**. That can seem surprising, since head 1.0 is necessary. But at the position that matters, its output is the same in both runs: "the previous token was A". The difference, B versus E, is the token *at* that position, and only head 2.0 copies it.
+
+So ablation said both heads are needed, and patching located where the B-versus-E information flows. This distinction, between *necessary for the behaviour* and *carries this specific difference*, is central to how circuits are argued about.
+
+<Callout tone="note" title="The same idea, at scale">
+  A widely cited study traced where GPT-style models store factual associations with "causal
+  tracing". It used a clean run, a run with the subject corrupted, and runs where single hidden
+  states were restored to their clean values to see which ones bring the answer back
+  ([Meng et al., 2022](https://arxiv.org/abs/2202.05262)). That is activation patching under
+  another name.
+</Callout>
+
+## What real models show
+
+- **Induction heads are real and common.** Olsson et al. studied induction heads in small and large transformers. Small models form them abruptly early in training, during a visible bump in the loss curve, and in-context learning improves at the same moment. Knocking out induction heads at test time greatly reduced in-context learning in small models. The authors call their case for large models "circumstantial" and present it as a hypothesis, not a proof. That caution is worth copying.
+- **Circuits can be large.** The circuit Wang et al. mapped in GPT-2 small, for a task like completing "When Mary and John went to the store, John gave a drink to …", involves 26 attention heads in 7 functional groups ([Wang et al., 2022](https://arxiv.org/abs/2211.00593)). Our two-head circuit is the textbook case; real ones are messier.
+- **Newer methods trace whole computations.** *Attribution graphs* map the intermediate steps a model takes to produce one output, using a more interpretable "replacement model" built from sparse features ([Ameisen et al., 2025](https://transformer-circuits.pub/2025/attribution-graphs/methods.html)). The authors say plainly that the replacement can use different mechanisms from the real model. They check their graphs with interventions, the same idea as this demo.
+
+## Where to go from here
+
+You now have the core loop of the field: **find a representation, propose a mechanism, test it by intervening.** To try it on real models:
+
+- [TransformerLens](https://github.com/TransformerLensOrg/TransformerLens) is a Python library for loading open models, caching every activation, and running ablations and patching.
+- The [`circuit-tracer`](https://pypi.org/project/circuit-tracer/) package builds attribution graphs for open models.
+- The papers in the sources below are long but readable, and most include interactive figures.
+
+## Try this
+
+- Type `E F G H E F G`. Which earlier position does head 2.0 attend to from the last G, and what does the model predict?
+- Type a sequence with no repeat, like `A B C D`, and read head 2.0's last row. Where does attention go when there is nothing to find?
+- With `A E C D A`, compare "Patch head 1.0" and "Ablate head 1.0". Why does one change the prediction and the other not?
+
+## Sources
+
+- Olsson et al. (2022), [In-context Learning and Induction Heads](https://transformer-circuits.pub/2022/in-context-learning-and-induction-heads/index.html). The [A][B] … [A] → [B] definition, the training-time bump, the knock-out results and the authors' hedging about large models come from here.
+- Elhage et al. (2021), [A Mathematical Framework for Transformer Circuits](https://transformer-circuits.pub/2021/framework/index.html), where induction heads were first described, in two-layer attention-only models.
+- Wang et al. (2022), [Interpretability in the Wild: a Circuit for Indirect Object Identification in GPT-2 small](https://arxiv.org/abs/2211.00593).
+- Meng et al. (2022), [Locating and Editing Factual Associations in GPT](https://arxiv.org/abs/2202.05262).
+- Ameisen et al. (2025), [Circuit Tracing: Revealing Computational Graphs in Language Models](https://transformer-circuits.pub/2025/attribution-graphs/methods.html).
+- The demo's code: `lib/toy/induction.ts` in this study. Its weights are hand-written to implement the circuit described above; the tests check each experiment's outcome.

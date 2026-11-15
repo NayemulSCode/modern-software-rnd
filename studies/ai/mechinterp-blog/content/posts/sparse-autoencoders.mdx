@@ -1,0 +1,114 @@
+import { SaeDemo } from "@/components/interactive"
+
+export const metadata = {
+  title: "Getting the features back out: sparse autoencoders",
+  shortTitle: "Sparse autoencoders",
+  description:
+    "If features hide in superposition, how do you find them? Train a second model whose only job is to take the first one apart, and watch the trade-off it has to make.",
+  published: "2026-11-12",
+}
+
+[Part 2](/posts/features-and-superposition) ended with a problem. A model can store 5 features in 2 numbers, and when it does, neither number means anything on its own. Each one is a mixture. Real models do this at a scale of thousands of dimensions.
+
+So we cannot read features off the neurons. We need a way to find the hidden directions. The most widely used tool for that today is the **sparse autoencoder**, or SAE.
+
+## The idea: explain each activation with a few parts
+
+Suppose we record the model's hidden vector $h$ on many inputs. Each $h$ is a sum of a few active features, each one a direction scaled by how active it is. We do not know the directions. We want to learn a *dictionary* of directions such that every $h$ can be rebuilt from **only a few** of them.
+
+"Only a few" is the key constraint. Without it there are endless ways to rebuild $h$, including the useless one where every latent fires a little on every input. With it, the cheapest explanation tends to be the true one: one direction per real feature, because the real features are sparse.
+
+<Callout tone="developer">
+  Think of compressing a log stream with a dictionary of message templates. You could describe each
+  line as a weighted blend of every template, but the useful dictionary is the one where each line
+  matches one or two templates exactly. Sparsity is what pushes the learner towards that dictionary.
+</Callout>
+
+## The model
+
+An SAE is a small neural network with a wide hidden layer. It encodes $h$ into many non-negative *latents* $f$, then decodes them back:
+
+$$
+f = \mathrm{ReLU}\big(W_e (h - b_d) + b_e\big)
+$$
+
+$$
+\hat h = W_d f + b_d
+$$
+
+It is trained to reconstruct well while keeping most latents at zero:
+
+$$
+L = \lVert \hat h - h \rVert^2 + \lambda \sum_j f_j
+$$
+
+The first term asks for an accurate reconstruction. The second, an **L1 penalty**, charges for every unit of latent activity. Because $f$ is never negative, that is the total activity. After each training step, the columns of $W_d$ are rescaled to length 1. Without that, the model could dodge the penalty by making $f$ tiny and the decoder huge.
+
+Column $j$ of $W_d$ is the direction latent $j$ stands for. If the SAE works, those columns line up with the true features.
+
+In this toy version the input is the 2D activation from part 2's pentagon: 5 features, evenly spaced, each active 10% of the time. The SAE has 8 latents, more than the 5 features, as real SAEs do. It sees only $h$, never the features themselves. Afterwards, we check each true feature against the closest living latent using cosine similarity. A score of 0.9 or more counts as recovered.
+
+<SaeDemo />
+
+## Reading the result
+
+The demo is seeded, so these are the numbers you should see. On average, an input has 0.5 features active.
+
+| λ | Reconstruction error | Latents on per input | Features recovered | Dead latents |
+| --- | --- | --- | --- | --- |
+| 0.01 | 0.0000 | 0.97 | 3 of 5 | 2 |
+| 0.03 | 0.0002 | 1.07 | 5 of 5 | 1 |
+| 0.1 | 0.0024 | 0.93 | 4 of 5 | 2 |
+| **0.3** | 0.0185 | **0.65** | **5 of 5** | 1 |
+| 1 | 0.0788 | 0.19 | 5 of 5 | 3 |
+| 2 | 0.1332 | 0.02 | 4 of 5 | 0 |
+
+**Too little penalty: perfect reconstruction, wrong parts.** At λ = 0.01 the reconstruction is exact, yet only 3 of the 5 features are found. In two dimensions, any two non-parallel latents can rebuild any point. Nothing forces the SAE to use the *true* directions, so it settles for a dictionary that reconstructs perfectly and explains badly.
+
+**Balanced: one latent per feature.** At λ = 0.3, every true feature has a latent with similarity 0.99 or more. About 0.65 latents fire per input, close to the true 0.5. The reconstruction is no longer perfect: the penalty shrinks every activation a little. Researchers know this side effect well, and it is the price of sparsity.
+
+**Too much penalty: the SAE stops talking.** At λ = 2, a latent fires on 2% of inputs and the reconstruction error is large. Firing at all costs more than the error it would fix. λ = 1 shows a subtler failure. All 5 directions are right, but the latents fire on too few inputs, so most activations are not explained.
+
+**It is not monotonic, and the seed matters.** λ = 0.03 recovers all 5 features while λ = 0.1 recovers 4. Small SAEs trained once are noisy. This is one reason real SAE work reports several numbers together instead of one score.
+
+<Callout tone="caution" title="Matching directions is not the whole test">
+  At λ = 1 the "features recovered" count says 5 of 5, but the SAE barely fires. A dictionary is only
+  useful if it also explains the activations. That is why the demo shows reconstruction error and
+  latents-per-input next to the match score, and why you should distrust any single SAE metric.
+</Callout>
+
+## Measuring an SAE when you do not know the answer
+
+The toy has an answer key: we know the 5 true directions. A real model does not. The work that brought SAEs to language models checked its features in three ways ([Bricken et al., 2023](https://transformer-circuits.pub/2023/monosemantic-features/index.html); [summary](https://www.anthropic.com/news/decomposing-language-models-into-understandable-components)):
+
+1. **People rated them.** A blinded evaluator judged features more interpretable than individual neurons.
+2. **A language model described them.** It wrote a description of each feature, and the description was scored by how well it predicted when the feature fires.
+3. **Turning a feature on changed behaviour.** Artificially activating a feature steered the model in the way its description predicted.
+
+The third check is the causal one. It is the same move as the interventions in [part 4](/posts/induction-heads).
+
+## At real scale
+
+- **One layer, 512 neurons.** Bricken et al. trained SAEs on the 512-neuron MLP layer of a one-layer transformer, using 8 billion activation samples, with dictionaries from 512 up to 131,072 latents. They analysed one run with 4,096 features in detail. Features included DNA sequences, legal language, HTTP requests, Hebrew text and nutrition statements.
+- **A production model.** Templeton et al. (2024) scaled the method to the middle layer of Claude 3 Sonnet, with SAEs of up to 34 million features ([Scaling Monosemanticity](https://transformer-circuits.pub/2024/scaling-monosemanticity/index.html)). Many features were multilingual and multimodal, and some were abstract, such as errors in code. Some related to safety, such as deception and sycophancy, and changing them changed the model's output. The authors also say their set of features is incomplete.
+- **Golden Gate Claude.** For one day in May 2024, Anthropic offered a version of Claude 3 Sonnet with its "Golden Gate Bridge" feature amplified. It steered almost every answer towards the bridge ([Anthropic, 2024](https://www.anthropic.com/news/golden-gate-claude)). It is the best-known example of finding a feature with an SAE and then using it.
+
+## What this toy leaves out
+
+- **Real activations are not a clean pentagon.** Features in real models vary in frequency and strength, and many may be too rare to learn. Two dimensions also make "recovered" easy to measure in a way that does not carry over.
+- **SAEs are a lens, not ground truth.** An SAE finds *a* sparse dictionary that explains the activations. Whether its latents are the model's own features, or an artefact of the method, is exactly what the causal checks above try to settle.
+- **The details matter at scale.** Real SAEs add techniques to deal with dead latents, choose dictionary size, and reduce the shrinkage the L1 penalty causes. This demo uses the plain version so every term is visible.
+
+## Try this
+
+- Move λ from 0.3 to 0.01 and watch the solid lines. They stop lining up with the dashed ones while the reconstruction error drops to zero.
+- At λ = 2, count how many solid lines remain and compare "latents on per input" with the true 0.5.
+- Open "Show the numbers" at λ = 0.1 and find the feature that was missed. Which latent is closest to it, and how close?
+
+## Sources
+
+- Bricken et al. (2023), [Towards Monosemanticity: Decomposing Language Models With Dictionary Learning](https://transformer-circuits.pub/2023/monosemantic-features/index.html), and Anthropic's [summary of the work](https://www.anthropic.com/news/decomposing-language-models-into-understandable-components). The model studied, data size, dictionary sizes, example features and the three validation methods come from these.
+- Templeton et al. (2024), [Scaling Monosemanticity: Extracting Interpretable Features from Claude 3 Sonnet](https://transformer-circuits.pub/2024/scaling-monosemanticity/index.html).
+- Anthropic (2024), [Golden Gate Claude](https://www.anthropic.com/news/golden-gate-claude).
+- Elhage et al. (2022), [Toy Models of Superposition](https://transformer-circuits.pub/2022/toy_model/index.html), for the pentagon the input comes from.
+- The demo's code: `lib/toy/sae.ts` in this study. The SAE follows the general recipe described above (ReLU encoder, L1 penalty, unit-length decoder columns). It is not a reproduction of any paper's exact training setup.

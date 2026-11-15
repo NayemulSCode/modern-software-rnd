@@ -50,6 +50,13 @@ Results from these go side by side in [`comparisons/component-libraries.md`](./c
 - [ ] Generating API reference from TypeScript types.
 - [ ] Architecture decision records: do they stay useful, or go stale?
 
+## AI
+
+- [x] Can small in-browser models make mechanistic interpretability understandable to developers, and what does an interactive MDX blog that stays fast and accessible take in Next.js 16? → [mechinterp-blog](../studies/ai/mechinterp-blog)
+- [ ] Running a real small language model in the browser (for example GPT-2 small through an ONNX runtime): what does it cost in download size and memory, and is it worth it compared with precomputed activations?
+- [ ] Streaming LLM responses into a React UI: Server Actions vs route handlers vs a client SDK, and how to keep it accessible.
+- [ ] Retrieval over this repository's own Markdown: what is the smallest setup that answers questions about the studies correctly, with sources?
+
 ## Later categories
 
-Not started, listed so they have a home when the time comes: `backend`, `databases`, `devops`, `testing`, `ai`.
+Not started, listed so they have a home when the time comes: `backend`, `databases`, `devops`, `testing`.
