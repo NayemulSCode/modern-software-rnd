@@ -1,0 +1,120 @@
+@import "tailwindcss";
+@plugin "@tailwindcss/typography";
+
+/* Dark mode follows a class on <html>, set before first paint (see layout). */
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  --background: oklch(0.99 0.004 85);
+  --foreground: oklch(0.22 0.015 260);
+  --muted: oklch(0.52 0.015 260);
+  --border: oklch(0.89 0.01 260);
+  --surface: oklch(0.965 0.006 85);
+  --accent: oklch(0.5 0.15 265);
+  --accent-soft: oklch(0.93 0.04 265);
+  --warn: oklch(0.55 0.15 50);
+  --good: oklch(0.52 0.12 160);
+  /* Categorical colours for features 1–5 in the demos; every mark also has a number label. */
+  --f1: oklch(0.55 0.17 265);
+  --f2: oklch(0.6 0.15 30);
+  --f3: oklch(0.55 0.12 160);
+  --f4: oklch(0.6 0.15 330);
+  --f5: oklch(0.6 0.13 85);
+}
+
+.dark {
+  --background: oklch(0.18 0.012 260);
+  --foreground: oklch(0.93 0.008 260);
+  --muted: oklch(0.72 0.012 260);
+  --border: oklch(0.32 0.015 260);
+  --surface: oklch(0.22 0.014 260);
+  --accent: oklch(0.75 0.12 265);
+  --accent-soft: oklch(0.3 0.06 265);
+  --warn: oklch(0.78 0.13 60);
+  --good: oklch(0.75 0.12 160);
+  --f1: oklch(0.72 0.14 265);
+  --f2: oklch(0.75 0.13 35);
+  --f3: oklch(0.75 0.12 160);
+  --f4: oklch(0.75 0.13 330);
+  --f5: oklch(0.82 0.12 90);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-muted: var(--muted);
+  --color-border: var(--border);
+  --color-surface: var(--surface);
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
+  --color-warn: var(--warn);
+  --color-good: var(--good);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+@layer base {
+  html {
+    color-scheme: light;
+  }
+  html.dark {
+    color-scheme: dark;
+  }
+  body {
+    background: var(--background);
+    color: var(--foreground);
+  }
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+/* Article text: the typography plugin, tuned to the site tokens. */
+.prose {
+  --tw-prose-body: var(--foreground);
+  --tw-prose-headings: var(--foreground);
+  --tw-prose-links: var(--accent);
+  --tw-prose-bold: var(--foreground);
+  --tw-prose-counters: var(--muted);
+  --tw-prose-bullets: var(--muted);
+  --tw-prose-hr: var(--border);
+  --tw-prose-quotes: var(--foreground);
+  --tw-prose-quote-borders: var(--border);
+  --tw-prose-captions: var(--muted);
+  --tw-prose-code: var(--foreground);
+  --tw-prose-th-borders: var(--border);
+  --tw-prose-td-borders: var(--border);
+}
+
+.prose :where(h2, h3) {
+  scroll-margin-top: 5rem;
+}
+
+/* rehype-pretty-code emits both themes; show the one that matches the mode. */
+.prose pre {
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+[data-rehype-pretty-code-figure] code span {
+  color: var(--shiki-light);
+}
+.dark [data-rehype-pretty-code-figure] code span {
+  color: var(--shiki-dark);
+}
+
+/* KaTeX display maths can be wider than a phone; scroll it, not the page. */
+.katex-display {
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-block: 0.25rem;
+}

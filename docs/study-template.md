@@ -6,7 +6,7 @@
 |---|---|
 | **Question** | The one thing this study is trying to find out, as a question. |
 | **Status** | `exploring` · `working` · `concluded` · `archived` |
-| **Category** | architecture · ui-libraries · features · seo · documentation |
+| **Category** | architecture · ui-libraries · features · seo · documentation · ai |
 | **Stack** | Framework and key libraries, with exact versions. |
 | **Started** | YYYY-MM-DD |
 | **Last verified** | YYYY-MM-DD, the last day `npm run ci` passed. |

@@ -20,7 +20,7 @@ If you cannot phrase it as a question, it is not ready. Add it to the [roadmap](
 studies/<category>/<study-name>/
 ```
 
-- **Category:** `architecture`, `ui-libraries`, `features`, `seo` or `documentation`. Create the folder if this is its first study. Add a new category only when nothing fits.
+- **Category:** `architecture`, `ui-libraries`, `features`, `seo`, `documentation` or `ai`. Create the folder if this is its first study. Add a new category only when nothing fits.
 - **Name:** lowercase, hyphens, says what is studied: `shadcn-admin-table`, `next-structured-data`. Keep it short: Windows has a path length limit and `node_modules` paths get long.
 
 ## 3. Branch
